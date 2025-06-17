@@ -69,4 +69,4 @@ class ImageCollector {
         ImageCollector() = default;
 };
 
-#endif // IMAGE_COLLECTOR_HPP
+#endif
