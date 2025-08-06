@@ -1,39 +1,45 @@
 import os
 from typing import List
-from datasets import load_dataset
+import fiftyone as fo
+import fiftyone.zoo as foz
+from fiftyone import ViewField as F
+from PIL import Image
 
 def download_images(tags: List[str], max_samples: int):
-    dataset = load_dataset("cifar10", split="train") # Split can be "test" also.
+    # Load the dataset with all necessary classes
+    dataset = foz.load_zoo_dataset(
+        "coco-2017",
+        split="train",
+        classes=tags,
+        max_samples=max_samples * len(tags),
+        shuffle=True
+    )
 
     for tag in tags:
         OUTPUT_DIR = f"./data/{tag}"
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        if len(os.listdir(OUTPUT_DIR)) != max_samples:
-            # Clear the output directory if it exists but does not have the required number of samples
-            print(f"Clearing existing files in {OUTPUT_DIR} because it does not have {max_samples} samples.")
-            for f in os.listdir(OUTPUT_DIR):
+        # Check if images already exist
+        existing_files = os.listdir(OUTPUT_DIR)
+        if len(existing_files) >= max_samples:
+            print(f"[✓] Dataset for tag '{tag}' already exists in {OUTPUT_DIR}, skipping download.")
+            continue
+
+        # Clear existing files if the count is incorrect
+        if existing_files:
+            print(f"[-] Clearing existing files in {OUTPUT_DIR} (found {len(existing_files)}, expected {max_samples})")
+            for f in existing_files:
                 os.remove(os.path.join(OUTPUT_DIR, f))
-            
-            print(f"Downloading dataset for tag '{tag}'...")
 
-            try:
-                label_id = dataset.features['label'].names.index(tag)
-                print(f"Label ID for '{tag}': {label_id}")
-            
-            except ValueError:
-                print(f"Error: The label '{tag}' does not exist in the dataset.")
-                print("Available labels:", dataset.features['label'].names)
-                continue
+        # Filter samples with the specific label
+        print(f"[→] Filtering samples with label '{tag}'")
+        view = dataset.filter_labels("ground_truth", F("label") == tag)
 
-            print(f"Filtering dataset for the target class '{tag}'...")
-            filtered_dataset = dataset.filter(lambda x: x['label'] == label_id)
+        print(f"[→] Found {len(view)} samples for tag '{tag}'")
 
-            for i, x in enumerate(filtered_dataset.select(range(min(max_samples, len(filtered_dataset))))):
-                image = x['img']
-                image.save(os.path.join(OUTPUT_DIR, f"{tag}_{i}.png"))
-            
-            print(f"Dataset for tag '{tag}' saved to {OUTPUT_DIR}")
+        for i, sample in enumerate(view.take(max_samples)):
+            image = Image.open(sample.filepath).convert("RGB")
+            save_path = os.path.join(OUTPUT_DIR, f"{tag}_{i}.jpg")
+            image.save(save_path)
 
-        else:
-            print(f"Dataset for tag '{tag}' already exists in {OUTPUT_DIR}, skipping download.")
+        print(f"[✓] Saved {min(max_samples, len(view))} images to {OUTPUT_DIR}")

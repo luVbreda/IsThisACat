@@ -5,3 +5,4 @@ venv/
 
 # Ignore the folder with the downloaded datasets
 data/
+venv_tf/
