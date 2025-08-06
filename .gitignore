@@ -1,0 +1,7 @@
+# Ignore Python bytecode files
+__pycache__/
+.venv/
+venv/
+
+# Ignore the folder with the downloaded datasets
+data/
